@@ -39,7 +39,7 @@
 </head>
 
 <body>
-    <video id="video" width="1200" height="1080" autoplay muted playsinline src='../images/25fps.mp4 '></video>
+    <video id="video" width="1200" height="1080" autoplay muted playsinline src='../images/test8.mp4 '></video>
     <!-- <video id="video" width="1200" height="1080" autoplay muted playsinline></video> -->
     <canvas id="canvas"></canvas>
 </body>
@@ -50,10 +50,10 @@
     const context = canvas.getContext("2d");
     const start = Date.now() / 1000;
 
-    // const colors = ['red', 'green', 'blue'];
+    const colors = ['red', 'green', 'blue'];
 
     let myReq;
-    //웹캠 사용 시 주석 해제
+    // 웹캠 사용 시 주석 해제
     // navigator.mediaDevices.getUserMedia({ video: true, audio: false })
     //     .then(function (stream) {
     //         video.srcObject = stream;
@@ -95,7 +95,7 @@
                     drawBoundingBox(body, context);
                     drawBoundingBox(leg, context);
                     
-                    // const boundingBox = posenet.getBoundingBox(pose.keypoints);
+                    const boundingBox = posenet.getBoundingBox(pose.keypoints);
                     // console.log("1. ", boundingBox.minX, "2. ", boundingBox.maxX, "3. ", boundingBox.minY, "4. ", boundingBox.maxY);
                     console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
                 })
