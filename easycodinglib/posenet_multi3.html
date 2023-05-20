@@ -28,9 +28,10 @@
     </style>
 </head>
 
-<body>    
-    <video id = "video" width = "1200" height = "1080" autoplay muted playsinline src = "../images/fall-13-cam0(cropped, slowly).mp4"></video>
-    <canvas id = "canvas"></canvas>
+<body>
+    <video id="video" width="1200" height="1080" autoplay muted playsinline
+        src="../images/fall-13-cam0(cropped, slowly).mp4"></video>
+    <canvas id="canvas"></canvas>
     <!-- <video id=" video" width="800" height="600" autoplay muted playsinline></video> -->
 </body>
 
@@ -44,8 +45,18 @@
     // let leg_curr_mean = 0;
 
     /* 추가 */
-    let checkRvalue = [];
-    let checkHSSCValue = [];
+    // let checkRvalue = [];
+    // 각 배열의 행은 객체의 개수 만큼 꼭 할당해주어야 한다.
+    var checkRvalue = new Array(2);
+    for (var i = 0; i < checkRvalue.length; i++) {
+        checkRvalue[i] = new Array(1);
+    }
+    //let checkHSSCValue = [];
+    var checkHSSCValue = new Array(2);
+
+    for (var i = 0; i < checkHSSCValue.length; i++) {
+        checkHSSCValue[i] = new Array(1);
+    }
     let prevHeadPosX = 0;
     let prevHeadPosY = 0;
 
@@ -90,11 +101,13 @@
                     canvas.width = video.width;
                     canvas.height = video.height;
 
+                    console.log("pose length: ", pose.length);
+
                     for (let i = 0; i < pose.length; i++) {
                         console.log("Keypoints JSON", JSON.stringify(pose[i].keypoints));
 
-                        drawKeypoints(pose[i].keypoints, 0.6, context);
-                        drawSkeleton(pose[i].keypoints, 0.6, context);
+                        drawKeypoints(pose[i].keypoints, 0.1, context);
+                        drawSkeleton(pose[i].keypoints, 0.1, context);
 
                         totalHeadX = 0.0;
                         totalHeadY = 0.0;
@@ -161,14 +174,14 @@
                                 Math.pow(totalHeadY / 7 - prevHeadPosY, 2)
                             );
                             const speed = posneg * (distance / 33);
-                            checkHSSCValue.push(speed);
+                            checkHSSCValue[i].push(speed);
                             prevHeadPosX = totalHeadX / 7;
                             prevHeadPosY = totalHeadY / 7;
                         }
 
                         const boundingBox = posenet.getBoundingBox(pose[i].keypoints);
                         console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
-                        checkRvalue.push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
+                        checkRvalue[i].push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
                     }
                 })
             }
