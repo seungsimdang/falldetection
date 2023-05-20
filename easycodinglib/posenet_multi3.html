@@ -1,0 +1,209 @@
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.11.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@3.11.0/dist/tf-converter.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.11.0/dist/tf-backend-webgl.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6/dist/pose-detection.min.js"></script>
+    <style>
+        /* 이미지에 캔버스를 겹쳐서 그릴때는 아래 주석 해제 */
+        canvas {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+
+        }
+
+        video {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+        }
+    </style>
+</head>
+
+<body>    
+    <video id = "video" width = "1200" height = "1080" autoplay muted playsinline src = "../images/fall-13-cam0(cropped, slowly).mp4"></video>
+    <canvas id = "canvas"></canvas>
+    <!-- <video id=" video" width="800" height="600" autoplay muted playsinline></video> -->
+</body>
+
+<script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    // let head_curr_mean = 0;
+    // let body_curr_mean = 0;
+    // let leg_curr_mean = 0;
+
+    /* 추가 */
+    let checkRvalue = [];
+    let checkHSSCValue = [];
+    let prevHeadPosX = 0;
+    let prevHeadPosY = 0;
+
+    let videoDuration;
+    video.onloadedmetadata = () => {
+        videoDuration = video.duration;
+        console.log("videoDuration", videoDuration);
+    }
+
+    // 웹캠 사용 시 주석 해제
+    // navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    //     .then(function (stream) {
+    //         video.srcObject = stream;
+    //     });
+
+    posenet.load().then(function (model) {
+        video.onloadeddata = (e) => {
+            /* 추가 */
+            const predict = (makePredict, delay, duration) => {
+                let count = 0;
+                const interval = setInterval(() => {
+                    if (delay * count >= duration) {
+                        return clearInterval(interval);
+                    }
+                    // makePredict(0, 0, 0);
+                    makePredict();
+                    count++;
+                }, delay);
+            };
+
+            // function makePredict(head_prev_mean, body_prev_mean, leg_prev_mean) {
+            const makePredict = () => {
+                let head_boundingbox = 0;
+                let body_boundingbox = 0;
+                let leg_boundingbox = 0;
+
+                model.estimateMultiplePoses(video,
+                    {
+                        maxDetections: 100,
+                    }
+                ).then(pose => {
+                    canvas.width = video.width;
+                    canvas.height = video.height;
+
+                    for (let i = 0; i < pose.length; i++) {
+                        console.log("Keypoints JSON", JSON.stringify(pose[i].keypoints));
+
+                        drawKeypoints(pose[i].keypoints, 0.6, context);
+                        drawSkeleton(pose[i].keypoints, 0.6, context);
+
+                        totalHeadX = 0.0;
+                        totalHeadY = 0.0;
+
+                        let head = [];
+                        for (let j = 0; j < 7; j++) {
+                            head.push(pose[i].keypoints[j]);
+                            totalHeadX += pose[i].keypoints[i].position.x;
+                            totalHeadY += pose[i].keypoints[i].position.y;
+                        }
+                        // console.log(head);
+                        let body = [];
+                        for (let j = 5; j < 13; j++) {
+                            if (j == 7 || j == 8 || j == 9 || j == 10)
+                                continue;
+                            body.push(pose[i].keypoints[j]);
+                        }
+                        let leg = [];
+                        for (let j = 11; j < 17; j++) {
+                            leg.push(pose[i].keypoints[j]);
+                        }
+
+                        head_boundingbox = posenet.getBoundingBox(head);
+                        // head_curr_mean = (head_boundingbox.maxY + head_boundingbox.minY) / 2;
+                        // console.log("머리 segment 낙하 속도 변화값: ", head_curr_mean - head_prev_mean);
+
+                        body_boundingbox = posenet.getBoundingBox(body);
+                        // body_curr_mean = (body_boundingbox.maxY + body_boundingbox.minY) / 2;
+                        // console.log("몸통 segment 낙하 속도 변화값: ", body_curr_mean - body_prev_mean);
+
+                        leg_boundingbox = posenet.getBoundingBox(leg);
+                        // leg_curr_mean = (leg_boundingbox.maxY + leg_boundingbox.minY) / 2;
+                        // console.log("다리 segment 낙하 속도 변화값: ", leg_curr_mean - leg_prev_mean);
+
+
+                        //console.log(head_boundingbox.minY, body_boundingbox.maxY);
+
+                        // 보정 필요
+                        if (head_boundingbox.maxY < body_boundingbox.minY + 10) {
+                            console.log("머리, 몸통 segment 중첩!");
+                        }
+
+                        //console.log(body_boundingbox.minY, leg_boundingbox.maxY);
+
+                        // 보정 필요
+                        if (body_boundingbox.maxY > leg_boundingbox.minY + 10) {
+                            console.log("몸통, 다리 segment 중첩!");
+                        }
+
+                        drawBoundingBox(head, context);
+                        drawBoundingBox(body, context);
+                        drawBoundingBox(leg, context);
+
+                        /* 추가 */
+                        if (prevHeadPosX == 0 && prevHeadPosY == 0) {
+                            prevHeadPosX = totalHeadX / 7;
+                            prevHeadPosY = totalHeadY / 7;
+                        }
+                        else {
+                            let posneg = 1;
+                            if (prevHeadPosY < totalHeadY / 7) posneg = -1;
+                            const distance = Math.sqrt(
+                                Math.pow(totalHeadX / 7 - prevHeadPosX, 2) +
+                                Math.pow(totalHeadY / 7 - prevHeadPosY, 2)
+                            );
+                            const speed = posneg * (distance / 33);
+                            checkHSSCValue.push(speed);
+                            prevHeadPosX = totalHeadX / 7;
+                            prevHeadPosY = totalHeadY / 7;
+                        }
+
+                        const boundingBox = posenet.getBoundingBox(pose[i].keypoints);
+                        console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
+                        checkRvalue.push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
+                    }
+                })
+            }
+
+            /* 추가 */
+            const download = () => {
+
+                var data1 = JSON.stringify(checkRvalue);
+                var blob1 = new Blob([data1], { type: 'text/plain' });
+                var downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(blob1);
+                downloadLink.download = 'Rvalue.txt';
+                downloadLink.click();
+
+
+
+                var data2 = JSON.stringify(checkHSSCValue);
+                var blob2 = new Blob([data2], { type: 'text/plain' });
+                var downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(blob2);
+                downloadLink.download = 'HSSCvalue.txt';
+                downloadLink.click();
+            }
+
+            setTimeout(download, 7000);
+
+            predict(makePredict, 33.3, videoDuration * 1000);
+        }
+
+        // console.log("checkRvalue", checkRvalue);
+        // console.log("checkHSSCValue", checkHSSCValue);
+    })
+
+
+</script>
+<script src="posenet.js"></script>
+
+</html>
