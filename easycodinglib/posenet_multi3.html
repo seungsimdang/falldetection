@@ -30,7 +30,7 @@
 
 <body>
     <video id="video" width="1200" height="1080" autoplay muted playsinline
-        src="../images/fall-13-cam0(cropped, slowly).mp4"></video>
+        src="../images/fall-30-cam0(cropped, slowly).mp4"></video>
     <canvas id="canvas"></canvas>
     <!-- <video id=" video" width="800" height="600" autoplay muted playsinline></video> -->
 </body>
@@ -95,13 +95,11 @@
 
                 model.estimateMultiplePoses(video,
                     {
-                        maxDetections: 100,
+                        maxDetections: 2,
                     }
                 ).then(pose => {
                     canvas.width = video.width;
                     canvas.height = video.height;
-
-                    console.log("pose length: ", pose.length);
 
                     for (let i = 0; i < pose.length; i++) {
                         console.log("Keypoints JSON", JSON.stringify(pose[i].keypoints));
@@ -145,14 +143,11 @@
 
                         //console.log(head_boundingbox.minY, body_boundingbox.maxY);
 
-                        // 보정 필요
                         if (head_boundingbox.maxY < body_boundingbox.minY + 10) {
                             console.log("머리, 몸통 segment 중첩!");
                         }
 
                         //console.log(body_boundingbox.minY, leg_boundingbox.maxY);
-
-                        // 보정 필요
                         if (body_boundingbox.maxY > leg_boundingbox.minY + 10) {
                             console.log("몸통, 다리 segment 중첩!");
                         }
@@ -206,7 +201,7 @@
                 downloadLink.click();
             }
 
-            setTimeout(download, 7000);
+            setTimeout(download, 10000);
 
             predict(makePredict, 33.3, videoDuration * 1000);
         }
