@@ -36,6 +36,7 @@
 </body>
 
 <script>
+    const gru_model = await tf.loadLayersModel('./model.json')
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const context = canvas.getContext("2d");
@@ -73,7 +74,7 @@
     //     });
 
     posenet.load().then(function (model) {
-        video.onloadeddata = (e) => {
+        video.onloadeddata = async(e) => {
             /* 추가 */
             const predict = (makePredict, delay, duration) => {
                 let count = 0;
@@ -180,6 +181,9 @@
                     }
                 })
             }
+
+            const prediction = gru_model.predict(checkRvalue);
+            console.log("prediction", prediction);
 
             /* 추가 */
             const download = () => {
