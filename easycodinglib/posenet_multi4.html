@@ -3,13 +3,14 @@
 <head>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.11.0/dist/tf-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@3.11.0/dist/tf-converter.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.11.0/dist/tf-backend-webgl.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6/dist/pose-detection.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script> -->
     <style>
         /* 이미지에 캔버스를 겹쳐서 그릴때는 아래 주석 해제 */
         canvas {
@@ -30,9 +31,10 @@
 </head>
 
 <body>
+    <video id="video" width="800" height="600" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
     <!-- <video id="video" width="1200" height="800" "autoplay muted playsinline src='../images/2_people.mp4 '></video> -->
-    <video id="video" width="800" height="600" autoplay muted playsinline></video>
+
 </body>
 
 <script>
@@ -56,7 +58,10 @@
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(function (stream) {
             video.srcObject = stream;
-        });
+        })
+        .catch((err => {
+            console.log(err)
+        }))
 
     posenet.load({
         architecture: 'MobileNetV1',
@@ -82,11 +87,7 @@
             let body_boundingbox = 0;
             let leg_boundingbox = 0;
 
-            model.estimateMultiplePoses(video,
-                {
-                    maxDetections: 100,
-                }
-            ).then(pose => {
+            model.estimateMultiplePoses(video).then(pose => {
                 canvas.width = video.width;
                 canvas.height = video.height;
 
@@ -154,7 +155,9 @@
                     checkRvalue[i].push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
                 }
             });
-            requestAnimationFrame(predict)
+            requestAnimationFrame(function() {
+                predict()
+            })
         }
     })
 
