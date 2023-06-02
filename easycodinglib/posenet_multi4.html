@@ -1,0 +1,164 @@
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.11.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@3.11.0/dist/tf-converter.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.11.0/dist/tf-backend-webgl.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6/dist/pose-detection.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+    <style>
+        /* 이미지에 캔버스를 겹쳐서 그릴때는 아래 주석 해제 */
+        canvas {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+
+        }
+
+        video {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <!-- <video id="video" width="1200" height="800" "autoplay muted playsinline src='../images/2_people.mp4 '></video> -->
+    <video id="video" width="800" height="600" autoplay muted playsinline></video>
+</body>
+
+<script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    var checkRvalue = new Array(2);
+    for (var i = 0; i < checkRvalue.length; i++) {
+        checkRvalue[i] = new Array(1);
+    }
+
+    var checkHSSCValue = new Array(2);
+    for (var i = 0; i < checkHSSCValue.length; i++) {
+        checkHSSCValue[i] = new Array(1);
+    }
+    let prevHeadPosX = 0;
+    let prevHeadPosY = 0;
+
+    // 웹캠 사용 시 주석 해제
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function (stream) {
+            video.srcObject = stream;
+        });
+
+    posenet.load({
+        architecture: 'MobileNetV1',
+    }).then(function (model) {
+        video.onloadeddata = (e) => {
+            predict();
+        }
+
+        function gru_predict() {
+            //     const model = tf.loadLayersModel('./model.json');
+            //     const prediction = model.predict(checkRvalue);
+            //     console.log("prediction", prediction);
+        }
+
+        function predict() {
+            let count = 0;
+            if ((33.3 * count) % 1000 == 0) {
+                gru_predict();
+            }
+            count++;
+
+            let head_boundingbox = 0;
+            let body_boundingbox = 0;
+            let leg_boundingbox = 0;
+
+            model.estimateMultiplePoses(video,
+                {
+                    maxDetections: 100,
+                }
+            ).then(pose => {
+                canvas.width = video.width;
+                canvas.height = video.height;
+
+                for (let i = 0; i < pose.length; i++) {
+                    console.log('Keypoints JSON', JSON.stringify(pose[i].keypoints));
+
+                    drawKeypoints(pose[i].keypoints, 0.1, context);
+                    drawSkeleton(pose[i].keypoints, 0.1, context);
+
+                    totalHeadX = 0.0;
+                    totalHeadY = 0.0;
+
+                    let head = [];
+                    for (let j = 0; j < 7; j++) {
+                        head.push(pose[i].keypoints[j]);
+                        totalHeadX += pose[i].keypoints[i].position.x;
+                        totalHeadY += pose[i].keypoints[i].position.y;
+                    }
+                    let body = [];
+                    for (let j = 5; j < 13; j++) {
+                        if (j == 7 || j == 8 || j == 9 || j == 10)
+                            continue;
+                        body.push(pose[i].keypoints[j]);
+                    }
+                    let leg = [];
+                    for (let j = 11; j < 17; j++) {
+                        leg.push(pose[i].keypoints[j]);
+                    }
+
+                    head_boundingbox = posenet.getBoundingBox(head);
+                    body_boundingbox = posenet.getBoundingBox(body);
+                    leg_boundingbox = posenet.getBoundingBox(leg);
+
+                    if (head_boundingbox.minY < body_boundingbox.maxY + 10) {
+                        console.log("머리, 몸통 segment 중첩!");
+                    }
+
+                    if (body_boundingbox.minY < leg_boundingbox.maxY + 10) {
+                        console.log("몸통, 다리 segment 중첩!");
+                    }
+
+                    drawBoundingBox(head, context);
+                    drawBoundingBox(body, context);
+                    drawBoundingBox(leg, context);
+
+                    if (prevHeadPosX == 0 && prevHeadPosY == 0) {
+                        prevHeadPosX = totalHeadX / 7;
+                        prevHeadPosY = totalHeadY / 7;
+                    }
+                    else {
+                        let posneg = 1;
+                        if (prevHeadPosY < totalHeadY / 7) posneg = -1;
+                        const distance = Math.sqrt(
+                            Math.pow(totalHeadX / 7 - prevHeadPosX, 2) +
+                            Math.pow(totalHeadY / 7 - prevHeadPosY, 2)
+                        );
+                        const speed = posneg * (distance / 33);
+                        checkHSSCValue[i].push(speed);
+                        prevHeadPosX = totalHeadX / 7;
+                        prevHeadPosY = totalHeadY / 7;
+                    }
+
+                    const boundingBox = posenet.getBoundingBox(pose[i].keypoints);
+                    console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
+                    checkRvalue[i].push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
+                }
+            });
+            requestAnimationFrame(predict)
+        }
+    })
+
+</script>
+<script src="posenet.js"></script>
+
+</html>

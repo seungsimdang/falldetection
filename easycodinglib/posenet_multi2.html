@@ -41,7 +41,6 @@
     posenet.load({
         //architecture: 'ResNet50',
         architecture: 'MobileNetV1',
-
     }).then(function (model) {
         video.onloadeddata = (e) => {
             predict();
@@ -100,7 +99,6 @@
                         leg_boundingbox = posenet.getBoundingBox(leg);
                         leg_curr_mean = (leg_boundingbox.maxY + leg_boundingbox.minY) / 2;
                         console.log("다리 segment 낙하 속도 변화값: ", leg_curr_mean - leg_prev_mean);
-
 
                         console.log(head_boundingbox.minY, body_boundingbox.maxY);
 

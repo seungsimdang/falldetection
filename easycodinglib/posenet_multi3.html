@@ -36,7 +36,7 @@
 </body>
 
 <script>
-    const gru_model = await tf.loadLayersModel('./model.json')
+    // const gru_model = await tf.loadLayersModel('./model.json')
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const context = canvas.getContext("2d");
@@ -74,7 +74,7 @@
     //     });
 
     posenet.load().then(function (model) {
-        video.onloadeddata = async(e) => {
+        video.onloadeddata = (e) => {
             /* 추가 */
             const predict = (makePredict, delay, duration) => {
                 let count = 0;
@@ -141,7 +141,6 @@
                         // leg_curr_mean = (leg_boundingbox.maxY + leg_boundingbox.minY) / 2;
                         // console.log("다리 segment 낙하 속도 변화값: ", leg_curr_mean - leg_prev_mean);
 
-
                         //console.log(head_boundingbox.minY, body_boundingbox.maxY);
 
                         if (head_boundingbox.maxY < body_boundingbox.minY + 10) {
@@ -182,20 +181,14 @@
                 })
             }
 
-            const prediction = gru_model.predict(checkRvalue);
-            console.log("prediction", prediction);
-
             /* 추가 */
             const download = () => {
-
                 var data1 = JSON.stringify(checkRvalue);
                 var blob1 = new Blob([data1], { type: 'text/plain' });
                 var downloadLink = document.createElement('a');
                 downloadLink.href = URL.createObjectURL(blob1);
                 downloadLink.download = 'Rvalue.txt';
                 downloadLink.click();
-
-
 
                 var data2 = JSON.stringify(checkHSSCValue);
                 var blob2 = new Blob([data2], { type: 'text/plain' });
@@ -209,7 +202,8 @@
 
             predict(makePredict, 33.3, videoDuration * 1000);
         }
-
+        // const prediction = gru_model.predict(checkRvalue);
+        // console.log("prediction", prediction);
         // console.log("checkRvalue", checkRvalue);
         // console.log("checkHSSCValue", checkHSSCValue);
     })
