@@ -3,14 +3,14 @@
 <head>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.11.0/dist/tf-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@3.11.0/dist/tf-converter.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.11.0/dist/tf-backend-webgl.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6/dist/pose-detection.min.js"></script>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script> -->
+
     <style>
         /* 이미지에 캔버스를 겹쳐서 그릴때는 아래 주석 해제 */
         canvas {
@@ -53,6 +53,7 @@
     }
     let prevHeadPosX = 0;
     let prevHeadPosY = 0;
+    let count = 0;
 
     // 웹캠 사용 시 주석 해제
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -70,18 +71,46 @@
             predict();
         }
 
-        function gru_predict() {
-            //     const model = tf.loadLayersModel('./model.json');
-            //     const prediction = model.predict(checkRvalue);
-            //     console.log("prediction", prediction);
+        async function gru_predict(checkRvalue) {
+            rList = checkRvalue.split(',');
+            newRList = [];
+
+            rList = rList.slice(1);
+            rList = rList.slice(0, rList.length - 1);
+
+            for (var rl in rList) {
+                if (rList[rl] == "[null") {
+                    i = rList.indexOf("[null");
+                    delete rList[i];
+                    delete rList[i - 1];
+                }
+                var real = parseFloat(rList[rl]).toFixed(3);
+                newRList.push(real);
+            }
+
+            // console.log("newRList", newRList);
+
+            const model = await tf.loadLayersModel('./model (1).json');
+            console.log(tf.tensor(newRList));
+            const prediction = model.predict(sample);
+            console.log("prediction", prediction);
         }
 
         function predict() {
-            let count = 0;
-            if ((33.3 * count) % 1000 == 0) {
-                gru_predict();
+            if ((checkRvalue[0].length + checkRvalue[1].length) == 34) {
+                console.log("checkRvalue", checkRvalue);
+                gru_predict(JSON.stringify(checkRvalue));
+                checkRvalue = new Array(2);
+                for (var i = 0; i < checkRvalue.length; i++) {
+                    checkRvalue[i] = new Array(1);
+                }
             }
-            count++;
+
+            // gru_predict(JSON.stringify(checkRvalue));
+            //     checkRvalue = new Array(2);
+            //     for (var i = 0; i < checkRvalue.length; i++) {
+            //         checkRvalue[i] = new Array(1);
+            //     }
 
             let head_boundingbox = 0;
             let body_boundingbox = 0;
@@ -155,7 +184,7 @@
                     checkRvalue[i].push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
                 }
             });
-            requestAnimationFrame(function() {
+            requestAnimationFrame(function () {
                 predict()
             })
         }

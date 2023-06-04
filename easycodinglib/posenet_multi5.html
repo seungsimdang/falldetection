@@ -1,0 +1,221 @@
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.11.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@3.11.0/dist/tf-converter.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.11.0/dist/tf-backend-webgl.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@0.0.6/dist/pose-detection.min.js"></script>
+
+    <style>
+        /* 이미지에 캔버스를 겹쳐서 그릴때는 아래 주석 해제 */
+        canvas {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+
+        }
+
+        video {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
+        }
+    </style>
+</head>
+
+<body>
+    <video id="video" width="800" height="600" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+    <!-- <video id="video" width="1200" height="800" "autoplay muted playsinline src='../images/2_people.mp4 '></video> -->
+
+</body>
+
+<script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    var checkRvalue = [];
+    var checkHSSCValue = [];
+    let prevHeadPosX = 0;
+    let prevHeadPosY = 0;
+    let count = 0;
+
+    // 웹캠 사용 시 주석 해제
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function (stream) {
+            video.srcObject = stream;
+        })
+        .catch((err => {
+            console.log(err)
+        }))
+
+    posenet.load({
+        architecture: 'MobileNetV1',
+    }).then(function (model) {
+        video.onloadeddata = (e) => {
+            predict();
+        }
+
+        async function gru_predict(checkRvalue, checkHSSCValue) {
+            rList = checkRvalue.split(',');
+            newRList = [];
+
+            if(rList.length == 33){
+                rList = rList.slice(1);
+                rList = rList.slice(0, rList.length - 2);
+            }
+            else{
+                rList = rList.slice(1);
+                rList = rList.slice(0, rList.length - 1);
+            }
+
+            i = rList.indexOf("[null");
+            delete rList[i];
+            delete rList[i - 1];
+
+            for (var rl in rList) {
+                var real = parseFloat(rList[rl]).toFixed(3);
+                newRList.push(real);
+            }
+
+            console.log("newRList", newRList);
+
+            hsscList = checkHSSCValue.split(',');
+            newHsscList = [];
+
+            hsscList = hsscList.slice(1);
+            hsscList = hsscList.slice(0, hsscList.length - 1);
+
+            i = hsscList.indexOf("[null");
+            delete hsscList[i];
+            delete hsscList[i - 1];
+
+            for (var hl in hsscList) {
+                var real = parseFloat(hsscList[hl]).toFixed(3);
+                newHsscList.push(real);
+            }
+
+            console.log("newHsscList", newHsscList);
+
+            var merged = newRList.concat(newHsscList, axis = 1);
+            merged = merged.slice(0, merged.length - 1);
+            console.log("merged", merged);
+
+            // var x1 = tf.expandDims(newRList, axis = 1);
+            // var x2 = tf.expandDims(newHsscList, axis = 1);
+            // var merged = x1.concat(x2, axis = 1);
+            // var x = tf.expandDims(merged, axis = 0);
+            // console.log("x", x);
+            
+            x = tf.tensor(merged, [1, 30, 2], 'float32');
+
+            const model = await tf.loadLayersModel('./model (1).json');
+            const prediction = model.predict(x);
+            console.log("prediction", prediction);
+        }
+
+        function predict() {
+            console.log("checkRvalue.length", checkRvalue.length);
+            console.log("checkHSSCValue.length", checkHSSCValue.length);
+
+            if (checkHSSCValue.length == 32) {
+                console.log("checkRvalue", checkRvalue);
+                console.log("checkHSSCValue", checkHSSCValue);
+                gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue));
+                checkRvalue = [];
+                checkHSSCValue = [];
+            }
+
+            // gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue));
+            // checkRvalue = [];
+            // checkHSSCValue = [];
+
+            let head_boundingbox = 0;
+            let body_boundingbox = 0;
+            let leg_boundingbox = 0;
+
+            model.estimateSinglePose(video).then(pose => {
+                canvas.width = video.width;
+                canvas.height = video.height;
+
+                console.log('Keypoints JSON', JSON.stringify(pose.keypoints));
+
+                drawKeypoints(pose.keypoints, 0.1, context);
+                drawSkeleton(pose.keypoints, 0.1, context);
+
+                totalHeadX = 0.0;
+                totalHeadY = 0.0;
+
+                let head = [];
+                for (let i = 0; i < 7; i++) {
+                    head.push(pose.keypoints[i]);
+                    totalHeadX += pose.keypoints[i].position.x;
+                    totalHeadY += pose.keypoints[i].position.y;
+                }
+                let body = [];
+                for (let i = 5; i < 13; i++) {
+                    if (i == 7 || i == 8 || i == 9 || i == 10)
+                        continue;
+                    body.push(pose.keypoints[i]);
+                }
+                let leg = [];
+                for (let i = 11; i < 17; i++) {
+                    leg.push(pose.keypoints[i]);
+                }
+
+                head_boundingbox = posenet.getBoundingBox(head);
+                body_boundingbox = posenet.getBoundingBox(body);
+                leg_boundingbox = posenet.getBoundingBox(leg);
+
+                if (head_boundingbox.minY < body_boundingbox.maxY + 10) {
+                    console.log("머리, 몸통 segment 중첩!");
+                }
+
+                if (body_boundingbox.minY < leg_boundingbox.maxY + 10) {
+                    console.log("몸통, 다리 segment 중첩!");
+                }
+
+                drawBoundingBox(head, context);
+                drawBoundingBox(body, context);
+                drawBoundingBox(leg, context);
+
+                if (prevHeadPosX == 0 && prevHeadPosY == 0) {
+                    prevHeadPosX = totalHeadX / 7;
+                    prevHeadPosY = totalHeadY / 7;
+                }
+                else {
+                    let posneg = 1;
+                    if (prevHeadPosY < totalHeadY / 7) posneg = -1;
+                    const distance = Math.sqrt(
+                        Math.pow(totalHeadX / 7 - prevHeadPosX, 2) +
+                        Math.pow(totalHeadY / 7 - prevHeadPosY, 2)
+                    );
+                    const speed = posneg * (distance / 33);
+                    checkHSSCValue.push(speed);
+                    prevHeadPosX = totalHeadX / 7;
+                    prevHeadPosY = totalHeadY / 7;
+                }
+
+                const boundingBox = posenet.getBoundingBox(pose.keypoints);
+                console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
+                checkRvalue.push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
+                
+            });
+            requestAnimationFrame(function () {
+                predict()
+            })
+        }
+    })
+
+</script>
+<script src="posenet.js"></script>
+
+</html>
