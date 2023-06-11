@@ -27,12 +27,26 @@
             top: 50%;
             left: 50%;
         }
+
+        div {
+            position: absolute;
+            left: 20px; top: 40%;
+            width: 300px; height: 100px;
+            background-color: #db1635;
+            text-align: center;
+            justify-content : center;
+        }
+
     </style>
 </head>
 
 <body>
+    <div id="div">
+        <p id="text" style="font-size:20px; color:white;"> </p>
+    </div>
     <video id="video" width="800" height="600" autoplay muted playsinline></video>
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas">
+    </canvas>
     <!-- <video id="video" width="1200" height="800" "autoplay muted playsinline src='../images/2_people.mp4 '></video> -->
 
 </body>
@@ -40,13 +54,18 @@
 <script>
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
+    const text = document.getElementById("text");
     const context = canvas.getContext("2d");
 
-    var checkRvalue = [];
-    var checkHSSCValue = [];
-    let prevHeadPosX = 0;
-    let prevHeadPosY = 0;
-    let count = 0;
+    let checkRvalue = [];
+    let checkHSSCValue = [];
+    let checkOverlapValue = [];
+    let prevHeadPosX = 0.0;
+    let prevHeadPosY = 0.0;
+    let count = 0.0;
+    let overlapWidth = 0.0;
+    let overlapHeight = 0.0;
+    let overlapArea = 0.0;
 
     // 웹캠 사용 시 주석 해제
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -64,15 +83,16 @@
             predict();
         }
 
-        async function gru_predict(checkRvalue, checkHSSCValue) {
+        async function gru_predict(checkRvalue, checkHSSCValue, checkOverlapValue) {
+            /* newRList 생성과정 */
             rList = checkRvalue.split(',');
             newRList = [];
 
-            if(rList.length == 33){
+            if (rList.length == 33) {
                 rList = rList.slice(1);
                 rList = rList.slice(0, rList.length - 2);
             }
-            else{
+            else {
                 rList = rList.slice(1);
                 rList = rList.slice(0, rList.length - 1);
             }
@@ -88,11 +108,17 @@
 
             console.log("newRList", newRList);
 
+            /* newHsscList 생성과정 */
             hsscList = checkHSSCValue.split(',');
             newHsscList = [];
 
-            hsscList = hsscList.slice(1);
-            hsscList = hsscList.slice(0, hsscList.length - 1);
+            if (hsscList.length == 32) {
+                hsscList = hsscList.slice(1);
+                hsscList = hsscList.slice(0, hsscList.length - 1);
+            }
+            else {
+                hsscList = hsscList.slice(1);
+            }
 
             i = hsscList.indexOf("[null");
             delete hsscList[i];
@@ -105,42 +131,68 @@
 
             console.log("newHsscList", newHsscList);
 
+            /* newOverlapList 생성과정 */
+            overlapList = checkOverlapValue.split(',');
+            newOverlapList = [];
+
+            if (overlapList.length == 33) {
+                overlapList = overlapList.slice(1);
+                overlapList = overlapList.slice(0, overlapList.length - 2);
+            }
+            else {
+                overlapList = overlapList.slice(1);
+                overlapList = overlapList.slice(0, overlapList.length - 1);
+            }
+
+            i = overlapList.indexOf("[null");
+            delete overlapList[i];
+            delete overlapList[i - 1];
+
+            for (var ol in overlapList) {
+                var real = parseFloat(overlapList[ol]).toFixed(3);
+                newOverlapList.push(real);
+            }
+
+            console.log("newOverlapList", newOverlapList);
+
             var merged = newRList.concat(newHsscList, axis = 1);
+            merged = merged.slice(0, merged.length - 1);
+            merged = merged.concat(newOverlapList, axis = 1);
             merged = merged.slice(0, merged.length - 1);
             console.log("merged", merged);
 
-            // var x1 = tf.expandDims(newRList, axis = 1);
-            // var x2 = tf.expandDims(newHsscList, axis = 1);
-            // var merged = x1.concat(x2, axis = 1);
-            // var x = tf.expandDims(merged, axis = 0);
-            // console.log("x", x);
-            
-            x = tf.tensor(merged, [1, 30, 2], 'float32');
+            x = tf.tensor(merged, [1, 30, 3], 'float32');
 
-            const model = await tf.loadLayersModel('./model (1).json');
+            const model = await tf.loadLayersModel('./model_f3_2.json');
             const prediction = model.predict(x);
             console.log("prediction", prediction);
+            const predictionArray = prediction.dataSync();            
+            console.log("predictionArray", predictionArray);
+
+            const maxValue = predictionArray.indexOf(Math.max(...predictionArray))
+            console.log("maxValue", maxValue);
+            if(maxValue > 0.5){
+                text.innerText = "낙상이 감지되었습니다!";
+            }
+            else{
+                text.innerText = "낙상이 감지되지 않았습니다!";
+            }
         }
 
         function predict() {
             console.log("checkRvalue.length", checkRvalue.length);
             console.log("checkHSSCValue.length", checkHSSCValue.length);
+            console.log("checkOverlapValue.length", checkOverlapValue.length);
 
-            if (checkHSSCValue.length == 32) {
+            if (checkOverlapValue.length % 32 == 0) {
                 console.log("checkRvalue", checkRvalue);
                 console.log("checkHSSCValue", checkHSSCValue);
-                gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue));
+                console.log("checkOverlapValue", checkOverlapValue);
+                gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue), JSON.stringify(checkOverlapValue));
                 checkRvalue = [];
                 checkHSSCValue = [];
+                checkOverlapValue = [];
             }
-
-            // gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue));
-            // checkRvalue = [];
-            // checkHSSCValue = [];
-
-            let head_boundingbox = 0;
-            let body_boundingbox = 0;
-            let leg_boundingbox = 0;
 
             model.estimateSinglePose(video).then(pose => {
                 canvas.width = video.width;
@@ -171,15 +223,31 @@
                     leg.push(pose.keypoints[i]);
                 }
 
-                head_boundingbox = posenet.getBoundingBox(head);
-                body_boundingbox = posenet.getBoundingBox(body);
-                leg_boundingbox = posenet.getBoundingBox(leg);
+                const headBoundingBox = posenet.getBoundingBox(head);
+                //body_boundingbox = posenet.getBoundingBox(body);
+                const bodyBoundingBox = posenet.getBoundingBox(body);
+                headArea = (headBoundingBox.maxX - headBoundingBox.minX) * (headBoundingBox.maxY - headBoundingBox.minY);
+                if (headBoundingBox.maxY > bodyBoundingBox.minY) {
+                    overlapWidth = Math.max(0, Math.min(headBoundingBox.minX + (headBoundingBox.maxX - headBoundingBox.minX),
+                        bodyBoundingBox.minX + (bodyBoundingBox.maxX - bodyBoundingBox.minX)) -
+                        Math.max(headBoundingBox.minX, bodyBoundingBox.minX));
+                    overlapHeight = Math.max(0, Math.min(headBoundingBox.minY + (headBoundingBox.maxY - headBoundingBox.minY),
+                        bodyBoundingBox.minY + (bodyBoundingBox.maxY - bodyBoundingBox.minY)) -
+                        Math.max(headBoundingBox.minY, bodyBoundingBox.minY));
+                    overlapArea = overlapWidth * overlapHeight;
+                }
+                else {
+                    overlapArea = 0.0;
+                }
+                checkOverlapValue.push(overlapArea);
 
-                if (head_boundingbox.minY < body_boundingbox.maxY + 10) {
+                const legBoundingbox = posenet.getBoundingBox(leg);
+
+                if (headBoundingBox.minY < bodyBoundingBox.maxY + 10) {
                     console.log("머리, 몸통 segment 중첩!");
                 }
 
-                if (body_boundingbox.minY < leg_boundingbox.maxY + 10) {
+                if (bodyBoundingBox.minY < legBoundingbox.maxY + 10) {
                     console.log("몸통, 다리 segment 중첩!");
                 }
 
@@ -207,7 +275,7 @@
                 const boundingBox = posenet.getBoundingBox(pose.keypoints);
                 console.log("R값 : ", (boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY));
                 checkRvalue.push((boundingBox.maxX - boundingBox.minX) / (boundingBox.maxY - boundingBox.minY).toFixed(2));
-                
+
             });
             requestAnimationFrame(function () {
                 predict()
