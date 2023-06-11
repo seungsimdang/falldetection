@@ -30,13 +30,14 @@
 
         div {
             position: absolute;
-            left: 20px; top: 40%;
-            width: 300px; height: 100px;
+            left: 20px;
+            top: 40%;
+            width: 300px;
+            height: 100px;
             background-color: #db1635;
             text-align: center;
-            justify-content : center;
+            justify-content: center;
         }
-
     </style>
 </head>
 
@@ -163,18 +164,18 @@
 
             x = tf.tensor(merged, [1, 30, 3], 'float32');
 
-            const model = await tf.loadLayersModel('./model_f3_2.json');
+            const model = await tf.loadLayersModel('./model_f2.json');
             const prediction = model.predict(x);
             console.log("prediction", prediction);
-            const predictionArray = prediction.dataSync();            
+            const predictionArray = prediction.dataSync();
             console.log("predictionArray", predictionArray);
 
             const maxValue = predictionArray.indexOf(Math.max(...predictionArray))
             console.log("maxValue", maxValue);
-            if(maxValue > 0.5){
+            if (maxValue > 0.5) {
                 text.innerText = "낙상이 감지되었습니다!";
             }
-            else{
+            else {
                 text.innerText = "낙상이 감지되지 않았습니다!";
             }
         }
