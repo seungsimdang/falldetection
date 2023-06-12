@@ -140,7 +140,8 @@
             const predictionArray = prediction.dataSync();
             console.log("predictionArray", predictionArray);
 
-            const maxValue = predictionArray.indexOf(Math.max(...predictionArray))
+            //const maxValue = predictionArray.indexOf(Math.max(...predictionArray))
+            const maxValue = Math.max(...predictionArray)
             console.log("maxValue", maxValue);
             if (maxValue > 0.5) {
                 text.innerText = "낙상이 감지되었습니다!";
