@@ -60,13 +60,9 @@
 
     let checkRvalue = [];
     let checkHSSCValue = [];
-    let checkOverlapValue = [];
     let prevHeadPosX = 0.0;
     let prevHeadPosY = 0.0;
     let count = 0.0;
-    let overlapWidth = 0.0;
-    let overlapHeight = 0.0;
-    let overlapArea = 0.0;
 
     // 웹캠 사용 시 주석 해제
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -84,7 +80,7 @@
             predict();
         }
 
-        async function gru_predict(checkRvalue, checkHSSCValue, checkOverlapValue) {
+        async function gru_predict(checkRvalue, checkHSSCValue) {
             /* newRList 생성과정 */
             rList = checkRvalue.split(',');
             newRList = [];
@@ -132,39 +128,13 @@
 
             console.log("newHsscList", newHsscList);
 
-            /* newOverlapList 생성과정 */
-            overlapList = checkOverlapValue.split(',');
-            newOverlapList = [];
-
-            if (overlapList.length == 33) {
-                overlapList = overlapList.slice(1);
-                overlapList = overlapList.slice(0, overlapList.length - 2);
-            }
-            else {
-                overlapList = overlapList.slice(1);
-                overlapList = overlapList.slice(0, overlapList.length - 1);
-            }
-
-            i = overlapList.indexOf("[null");
-            delete overlapList[i];
-            delete overlapList[i - 1];
-
-            for (var ol in overlapList) {
-                var real = parseFloat(overlapList[ol]).toFixed(3);
-                newOverlapList.push(real);
-            }
-
-            console.log("newOverlapList", newOverlapList);
-
             var merged = newRList.concat(newHsscList, axis = 1);
-            merged = merged.slice(0, merged.length - 1);
-            merged = merged.concat(newOverlapList, axis = 1);
             merged = merged.slice(0, merged.length - 1);
             console.log("merged", merged);
 
-            x = tf.tensor(merged, [1, 30, 3], 'float32');
+            x = tf.tensor(merged, [1, 30, 2], 'float32');
 
-            const model = await tf.loadLayersModel('./model_f3_2.json');
+            const model = await tf.loadLayersModel('./model.json');
             const prediction = model.predict(x);
             console.log("prediction", prediction);
             const predictionArray = prediction.dataSync();
@@ -183,16 +153,13 @@
         function predict() {
             console.log("checkRvalue.length", checkRvalue.length);
             console.log("checkHSSCValue.length", checkHSSCValue.length);
-            console.log("checkOverlapValue.length", checkOverlapValue.length);
 
-            if (checkOverlapValue.length % 32 == 0) {
+            if (checkRvalue.length % 32 == 0) {
                 console.log("checkRvalue", checkRvalue);
                 console.log("checkHSSCValue", checkHSSCValue);
-                console.log("checkOverlapValue", checkOverlapValue);
-                gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue), JSON.stringify(checkOverlapValue));
+                gru_predict(JSON.stringify(checkRvalue), JSON.stringify(checkHSSCValue));
                 checkRvalue = [];
                 checkHSSCValue = [];
-                checkOverlapValue = [];
             }
 
             model.estimateSinglePose(video).then(pose => {
@@ -228,19 +195,6 @@
                 //body_boundingbox = posenet.getBoundingBox(body);
                 const bodyBoundingBox = posenet.getBoundingBox(body);
                 headArea = (headBoundingBox.maxX - headBoundingBox.minX) * (headBoundingBox.maxY - headBoundingBox.minY);
-                if (headBoundingBox.maxY > bodyBoundingBox.minY) {
-                    overlapWidth = Math.max(0, Math.min(headBoundingBox.minX + (headBoundingBox.maxX - headBoundingBox.minX),
-                        bodyBoundingBox.minX + (bodyBoundingBox.maxX - bodyBoundingBox.minX)) -
-                        Math.max(headBoundingBox.minX, bodyBoundingBox.minX));
-                    overlapHeight = Math.max(0, Math.min(headBoundingBox.minY + (headBoundingBox.maxY - headBoundingBox.minY),
-                        bodyBoundingBox.minY + (bodyBoundingBox.maxY - bodyBoundingBox.minY)) -
-                        Math.max(headBoundingBox.minY, bodyBoundingBox.minY));
-                    overlapArea = overlapWidth * overlapHeight;
-                }
-                else {
-                    overlapArea = 0.0;
-                }
-                checkOverlapValue.push(overlapArea);
 
                 const legBoundingbox = posenet.getBoundingBox(leg);
 
